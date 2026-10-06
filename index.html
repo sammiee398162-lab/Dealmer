@@ -99,6 +99,14 @@ textarea{min-height:90px;resize:vertical}
 .seg button[aria-pressed=true].drop{background:var(--drop-bg);color:var(--ink);border-color:var(--muted);font-weight:600}
 .del{background:none;border:0;color:var(--muted);font-size:14px;padding:4px 0;margin-top:10px;cursor:pointer;text-decoration:underline}
 .empty{text-align:center;color:var(--muted);padding:34px 10px}
+.hbody{min-width:0;flex:1}
+.thumb{flex:0 0 84px;width:84px;height:84px;border-radius:12px;object-fit:cover;background:var(--bg);border:1px solid var(--line);cursor:zoom-in}
+.thumb.ph{color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;border-style:dashed}
+.acts{display:flex;gap:18px}
+input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-radius:12px;background:var(--bg);font-size:15px}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+#lightbox[hidden]{display:none}
+#lightbox img{max-width:100%;max-height:100%;border-radius:12px}
 
 .flagrow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .flagrow:first-of-type{border-top:0}
@@ -146,6 +154,9 @@ textarea{min-height:90px;resize:vertical}
         <input id="fSeller" type="text" inputmode="url" autocomplete="off" autocapitalize="off"></div>
     </div>
     <div class="hint" id="sellerHint"></div>
+    <label for="fPhoto">รูปการ์ด (เลือกจากรูปในเครื่อง ไม่ใส่ก็ได้)</label>
+    <input id="fPhoto" type="file" accept="image/*">
+    <div class="hint">ถ้าไม่เลือกรูป แอปจะลองดึงรูปจากลิงก์ให้เอง (อาจไม่สำเร็จทุกครั้ง)</div>
     <button class="btn" id="btnAdd">เพิ่มลงรายการ</button>
   </div>
 
@@ -181,6 +192,8 @@ textarea{min-height:90px;resize:vertical}
 </section>
 </main>
 
+<input id="photoPick" type="file" accept="image/*" hidden>
+<div id="lightbox" hidden><img alt="รูปสินค้าขยาย"></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -201,7 +214,7 @@ function load(){
   }catch(e){}
 }
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged}));}catch(e){}
+  try{localStorage.setItem(KEY,JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged}));}catch(e){toast('พื้นที่เก็บข้อมูลเต็ม บันทึกไม่ได้ ลองลบรูปหรือลิงก์เก่า');}
 }
 
 /* ---------- helpers ---------- */
@@ -265,10 +278,13 @@ function renderList(){
   $('list').innerHTML=rows.map(i=>{
     const fl=flaggedFor(i.seller);
     const title=i.name||('สินค้า '+(i.itemId||''));
+    const src=i.img||i.imgUrl;
+    const pic=src?`<img class="thumb" src="${esc(src)}" alt="รูปสินค้า" referrerpolicy="no-referrer" data-act="zoom">`
+      :`<button class="thumb ph" data-act="photo" aria-label="เพิ่มรูป">เพิ่มรูป</button>`;
     const seg=Object.keys(STATUS).map(k=>
       `<button class="${k}" data-act="status" data-v="${k}" aria-pressed="${i.status===k}">${STATUS[k]}</button>`).join('');
     return `<article class="item ${i.status==='drop'?'drop':''} ${fl?'flag':''}" data-id="${esc(i.id)}">
-      <div class="head"><div>
+      <div class="head">${pic}<div class="hbody">
         <div class="name">${esc(title)}</div>
         <div class="meta">${esc(i.itemId||'')}${i.seller?' · ผู้ขาย '+esc(i.seller):''} · <a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">เปิดใน Mercari</a></div>
       </div></div>
@@ -278,7 +294,7 @@ function renderList(){
         <div class="thb price">≈ ฿${fmt(i.jpy*S.rate)}</div>
       </div>
       <div class="seg">${seg}</div>
-      <button class="del" data-act="del">ลบลิงก์นี้</button>
+      <div class="acts"><button class="del" data-act="photo">${src?'เปลี่ยนรูป':'เพิ่มรูป'}</button><button class="del" data-act="del">ลบลิงก์นี้</button></div>
     </article>`;
   }).join('');
 }
@@ -301,7 +317,7 @@ function checkHint(){
   if(f){h.textContent='ผู้ขายนี้เคยถูกรายงาน'+(f.note?': '+f.note:'');h.className='hint bad';}
   else{h.textContent='ไม่พบในรายการเตือนภัยของคุณ (ไม่ได้แปลว่าปลอดภัย)';h.className='hint';}
 }
-function addItem(){
+async function addItem(){
   const p=parseLink($('fUrl').value);
   if(!p){toast('วางลิงก์ก่อน');return;}
   if(p.type==='bad'){toast('ลิงก์ไม่ถูกต้อง');return;}
@@ -315,11 +331,16 @@ function addItem(){
   const sv=$('fSeller').value.trim();
   const seller=sellerFrom(sv);
   if(sv&&seller===null){toast('รหัสผู้ขายไม่ถูกต้อง');return;}
-  S.items.unshift({id:uid(),key,itemId:p.id||'',url:p.url,name:$('fName').value.trim(),
-    jpy:num($('fJpy').value),seller:seller||'',status:'hot',added:Date.now()});
-  ['fUrl','fName','fJpy','fSeller'].forEach(k=>$(k).value='');
+  let img='';
+  const pf=$('fPhoto').files[0];
+  if(pf){try{img=await resizeImage(pf);}catch(e){toast('อ่านรูปไม่ได้ เพิ่มลิงก์โดยไม่มีรูป');}}
+  const it={id:uid(),key,itemId:p.id||'',url:p.url,name:$('fName').value.trim(),img,imgUrl:'',
+    jpy:num($('fJpy').value),seller:seller||'',status:'hot',added:Date.now()};
+  S.items.unshift(it);
+  ['fUrl','fName','fJpy','fSeller','fPhoto'].forEach(k=>$(k).value='');
   checkHint(); save(); render();
   toast(flaggedFor(seller)?'เพิ่มแล้ว แต่ผู้ขายนี้เคยถูกรายงาน':'เพิ่มลงรายการแล้ว');
+  if(!img) fetchPreview(it);
 }
 function addFlag(){
   const id=sellerFrom($('gSeller').value);
@@ -345,6 +366,34 @@ function importData(){
     $('rate').value=S.rate; save(); render(); toast('นำเข้าแล้ว');
   }catch(e){toast('ข้อมูลสำรองไม่ถูกต้อง');}
 }
+function resizeImage(file,max=480){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{
+      const k=Math.min(1,max/Math.max(im.width,im.height));
+      const c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(im.width*k)); c.height=Math.max(1,Math.round(im.height*k));
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg',0.72));
+    };
+    im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'));};
+    im.src=url;
+  });
+}
+async function fetchPreview(it){
+  try{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),12000);
+    const r=await fetch('https://api.microlink.io/?url='+encodeURIComponent(it.url),{signal:ctl.signal});
+    clearTimeout(t);
+    const d=(await r.json()).data;
+    const cur=S.items.find(x=>x.id===it.id);
+    if(!d||!cur||cur.img||!d.image||!d.image.url) return;
+    cur.imgUrl=d.image.url;
+    if(!cur.name&&d.title) cur.name=String(d.title).replace(/\s*[-|]\s*メルカリ.*$/,'').slice(0,80);
+    save(); render();
+  }catch(e){}
+}
+let pickFor=null;
 function showTab(t){
   const list=t==='list';
   $('viewList').hidden=!list; $('viewFlag').hidden=list;
@@ -357,6 +406,17 @@ $('rate').addEventListener('change',e=>{
   if(v>0){S.rate=v;save();render();}else{e.target.value=S.rate;toast('ใส่เรทเป็นตัวเลขมากกว่า 0');}
 });
 $('btnAdd').onclick=addItem;
+$('lightbox').onclick=()=>{$('lightbox').hidden=true;};
+$('photoPick').addEventListener('change',async e=>{
+  const f=e.target.files[0]; e.target.value='';
+  const it=S.items.find(i=>i.id===pickFor); if(!f||!it) return;
+  try{it.img=await resizeImage(f); save(); render();}catch(err){toast('อ่านรูปไม่ได้');}
+});
+$('list').addEventListener('error',e=>{
+  if(!e.target.classList||!e.target.classList.contains('thumb')) return;
+  const it=S.items.find(i=>i.id===e.target.closest('.item').dataset.id);
+  if(it&&it.imgUrl&&!it.img){it.imgUrl='';save();render();}
+},true);
 $('btnFlag').onclick=addFlag;
 $('btnExport').onclick=exportData;
 $('btnImport').onclick=importData;
@@ -372,6 +432,8 @@ $('list').addEventListener('click',e=>{
   if(!card||!b) return;
   const it=S.items.find(i=>i.id===card.dataset.id); if(!it) return;
   if(b.dataset.act==='status'){it.status=b.dataset.v;save();render();}
+  if(b.dataset.act==='zoom'){$('lightbox').querySelector('img').src=it.img||it.imgUrl;$('lightbox').hidden=false;}
+  if(b.dataset.act==='photo'){pickFor=it.id;$('photoPick').click();}
   if(b.dataset.act==='del'&&confirm('ลบลิงก์นี้ออกจากรายการ?')){S.items=S.items.filter(i=>i!==it);save();render();}
 });
 $('list').addEventListener('change',e=>{
