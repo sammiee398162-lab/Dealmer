@@ -15,6 +15,7 @@
 <link rel="apple-touch-icon" id="touchIcon">
 <link rel="icon" id="favIcon">
 <style>
+[hidden]{display:none!important}
 :root{
   --bg:#EEF1EE; --card:#FFFFFF; --ink:#16212B; --muted:#5E6B75; --line:#D9DFDB;
   --teal:#12353A; --teal-2:#1D5A5F; --mint:#BFE3D4; --amber:#B45309; --amber-bg:#FDEBC8;
@@ -102,7 +103,16 @@ textarea{min-height:90px;resize:vertical}
 .hbody{min-width:0;flex:1}
 .thumb{flex:0 0 84px;width:84px;height:84px;border-radius:12px;object-fit:cover;background:var(--bg);border:1px solid var(--line);cursor:zoom-in}
 .thumb.ph{color:var(--muted);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;border-style:dashed}
-.acts{display:flex;gap:18px}
+.acts{display:flex;gap:18px;flex-wrap:wrap}
+select{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:16px;color:var(--ink)}
+.chips.cats{margin-top:8px}
+.chip.catc[aria-pressed=true]{background:var(--teal-2);color:#fff;border-color:var(--teal-2)}
+.catbar{margin-top:12px;padding:10px 14px;border-radius:14px;background:var(--hot-bg);color:var(--hot-ink);font-size:15px;font-weight:600}
+.rowtools{display:flex;gap:10px;align-items:center;margin-top:12px}
+.rowtools select{flex:1;min-width:0;padding:9px 10px}
+.mv{display:flex;gap:6px}
+.mv button{width:44px;height:40px;border:1px solid var(--line);background:transparent;border-radius:11px;font-size:16px;cursor:pointer;color:var(--ink)}
+.mv button:disabled{opacity:.3;cursor:default}
 input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-radius:12px;background:var(--bg);font-size:15px}
 #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
 #lightbox[hidden]{display:none}
@@ -136,7 +146,8 @@ input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-rad
 
 <nav class="tabs" role="tablist">
   <button role="tab" id="tabList" aria-selected="true">รายการ</button>
-  <button role="tab" id="tabFlag" aria-selected="false">เตือนภัยผู้ขาย<span class="badge-n" id="flagN" hidden></span></button>
+  <button role="tab" id="tabCat" aria-selected="false">หมวดหมู่</button>
+  <button role="tab" id="tabFlag" aria-selected="false">เตือนภัย<span class="badge-n" id="flagN" hidden></span></button>
 </nav>
 
 <main>
@@ -154,14 +165,31 @@ input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-rad
         <input id="fSeller" type="text" inputmode="url" autocomplete="off" autocapitalize="off"></div>
     </div>
     <div class="hint" id="sellerHint"></div>
+    <label for="fCat">หมวดหมู่ (สร้างหมวดได้ที่แท็บหมวดหมู่)</label>
+    <select id="fCat"></select>
     <label for="fPhoto">ภาพแคปหน้าสินค้า (แอปจะอ่านราคาจากรูปให้)</label>
     <input id="fPhoto" type="file" accept="image/*">
     <div class="hint" id="ocrHint">เลือกรูปที่เห็นราคาชัดๆ ถ้าไม่เลือกรูป แอปจะลองดึงรูปจากลิงก์ให้เอง (อาจไม่สำเร็จทุกครั้ง)</div>
     <button class="btn" id="btnAdd">เพิ่มลงรายการ</button>
   </div>
 
-  <div class="chips" id="chips"></div>
+  <div class="chips cats" id="catChips" hidden></div>
+  <div class="chips" id="chips" style="margin-top:8px"></div>
+  <div class="catbar" id="catTotal" hidden></div>
   <div id="list"></div>
+</section>
+
+<section id="viewCat" hidden>
+  <div class="panel">
+    <h2>เพิ่มหมวดหมู่</h2>
+    <label for="cName">ชื่อหมวด (เช่น ชื่อศิลปิน ชื่อเกม หรือชนิดการ์ด)</label>
+    <input id="cName" type="text" maxlength="30" autocomplete="off">
+    <button class="btn" id="btnCat">เพิ่มหมวดหมู่</button>
+  </div>
+  <div class="panel">
+    <h2>หมวดหมู่ทั้งหมด</h2>
+    <div id="catList"></div>
+  </div>
 </section>
 
 <section id="viewFlag" hidden>
@@ -199,7 +227,7 @@ input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-rad
 <script>
 (function(){
 const KEY='talad-mer-v1';
-const S={rate:0.23,items:[],flagged:[],filter:'all'};
+const S={rate:0.23,items:[],flagged:[],cats:[],cat:'all',filter:'all'};
 const $=id=>document.getElementById(id);
 const STATUS={hot:'สนใจมาก',wait:'รอดูก่อน',drop:'ตัดทิ้ง'};
 
@@ -211,10 +239,12 @@ function load(){
     if(+d.rate>0) S.rate=+d.rate;
     if(Array.isArray(d.items)) S.items=d.items;
     if(Array.isArray(d.flagged)) S.flagged=d.flagged;
+    if(Array.isArray(d.cats)) S.cats=d.cats.filter(c=>typeof c==='string'&&c);
+    S.items.forEach(i=>{if(i.cat&&!S.cats.includes(i.cat)) S.cats.push(i.cat);});
   }catch(e){}
 }
 function save(){
-  try{localStorage.setItem(KEY,JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged}));}catch(e){toast('พื้นที่เก็บข้อมูลเต็ม บันทึกไม่ได้ ลองลบรูปหรือลิงก์เก่า');}
+  try{localStorage.setItem(KEY,JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged,cats:S.cats}));}catch(e){toast('พื้นที่เก็บข้อมูลเต็ม บันทึกไม่ได้ ลองลบรูปหรือลิงก์เก่า');}
 }
 
 /* ---------- helpers ---------- */
@@ -248,7 +278,7 @@ const num=v=>parseInt(String(v).replace(/[^\d]/g,''),10)||0;
 
 /* ---------- render ---------- */
 function render(){
-  renderSummary(); renderChips(); renderList(); renderFlags();
+  renderSummary(); renderCatSelect(); renderChips(); renderList(); renderCats(); renderFlags();
 }
 function renderSummary(){
   const active=S.items.filter(i=>i.status!=='drop');
@@ -262,20 +292,55 @@ function renderSummary(){
   const n=S.items.filter(i=>flaggedFor(i.seller)&&i.status!=='drop').length;
   $('flagN').hidden=!n; $('flagN').textContent=n;
 }
+function catMatch(i){return S.cat==='all'||(S.cat==='__none'?!i.cat:i.cat===S.cat);}
+function visibleRows(){return S.items.filter(i=>catMatch(i)&&(S.filter==='all'||i.status===S.filter));}
+function renderCatSelect(){
+  const el=$('fCat'), prev=el.value;
+  el.innerHTML='<option value="">ไม่ระบุหมวด</option>'+S.cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  el.value=S.cats.includes(prev)?prev:(S.cats.includes(S.cat)?S.cat:'');
+}
 function renderChips(){
-  const c={all:S.items.length,hot:0,wait:0,drop:0};
-  S.items.forEach(i=>c[i.status]++);
+  if(S.cat!=='all'&&S.cat!=='__none'&&!S.cats.includes(S.cat)) S.cat='all';
+  const base=S.items.filter(catMatch);
+  const c={all:base.length,hot:0,wait:0,drop:0};
+  base.forEach(i=>c[i.status]++);
   const defs=[['all','ทั้งหมด'],['hot','สนใจมาก'],['wait','รอดูก่อน'],['drop','ตัดทิ้ง']];
   $('chips').innerHTML=defs.map(([k,l])=>
     `<button class="chip" data-filter="${k}" aria-pressed="${S.filter===k}">${l} ${c[k]}</button>`).join('');
+  const cc=$('catChips'), tb=$('catTotal');
+  if(!S.cats.length){cc.hidden=true;tb.hidden=true;return;}
+  cc.hidden=false;
+  const none=S.items.filter(i=>!i.cat).length;
+  const cdefs=[['all','ทุกหมวด',S.items.length]].concat(S.cats.map(n=>[n,n,S.items.filter(i=>i.cat===n).length]));
+  if(none) cdefs.push(['__none','ไม่ระบุหมวด',none]);
+  cc.innerHTML=cdefs.map(([k,l,n])=>
+    `<button class="chip catc" data-cat="${esc(k)}" aria-pressed="${S.cat===k}">${esc(l)} ${n}</button>`).join('');
+  if(S.cat==='all'){tb.hidden=true;return;}
+  const act=S.items.filter(catMatch).filter(i=>i.status!=='drop');
+  const jpy=act.reduce((s,i)=>s+i.jpy,0);
+  tb.hidden=false;
+  tb.textContent=(S.cat==='__none'?'ไม่ระบุหมวด':'หมวด '+S.cat)+': '+act.length+' ลิงก์ที่ยังสนใจ รวม ฿'+fmt(jpy*S.rate)+' (¥'+fmt(jpy)+')';
+}
+function renderCats(){
+  const total=a=>a.filter(i=>i.status!=='drop').reduce((s,i)=>s+i.jpy,0)*S.rate;
+  if(!S.cats.length){$('catList').innerHTML='<div class="empty" style="padding:14px 0">ยังไม่มีหมวดหมู่</div>';return;}
+  let html=S.cats.map((c,k)=>{
+    const a=S.items.filter(i=>i.cat===c);
+    return `<div class="flagrow"><div><b>${esc(c)}</b><div class="note">${a.length} ลิงก์ รวม ฿${fmt(total(a))}</div>
+      <div class="acts" style="margin-top:4px"><button class="del" data-crename="${esc(c)}" style="margin:0">เปลี่ยนชื่อ</button><button class="del" data-crdel="${esc(c)}" style="margin:0">ลบ</button></div></div>
+      <div class="mv"><button data-cmove="${esc(c)}" data-dir="-1" aria-label="เลื่อนหมวดขึ้น" ${k===0?'disabled':''}>▲</button><button data-cmove="${esc(c)}" data-dir="1" aria-label="เลื่อนหมวดลง" ${k===S.cats.length-1?'disabled':''}>▼</button></div></div>`;
+  }).join('');
+  const none=S.items.filter(i=>!i.cat);
+  html+=`<div class="flagrow"><div><b>ไม่ระบุหมวด</b><div class="note">${none.length} ลิงก์ รวม ฿${fmt(total(none))}</div></div></div>`;
+  $('catList').innerHTML=html;
 }
 function renderList(){
-  const rows=S.items.filter(i=>S.filter==='all'||i.status===S.filter);
+  const rows=visibleRows();
   if(!rows.length){
     $('list').innerHTML=`<div class="empty">${S.items.length?'ไม่มีลิงก์ในหมวดนี้':'ยังไม่มีลิงก์ วางลิงก์ Mercari ด้านบนเพื่อเริ่มต้น'}</div>`;
     return;
   }
-  $('list').innerHTML=rows.map(i=>{
+  $('list').innerHTML=rows.map((i,idx)=>{
     const fl=flaggedFor(i.seller);
     const title=i.name||('สินค้า '+(i.itemId||''));
     const src=i.img||i.imgUrl;
@@ -294,6 +359,10 @@ function renderList(){
         <div class="thb price">≈ ฿${fmt(i.jpy*S.rate)}</div>
       </div>
       <div class="seg">${seg}</div>
+      <div class="rowtools">
+        <select class="catsel" aria-label="หมวดหมู่"><option value="">ไม่ระบุหมวด</option>${S.cats.map(c=>`<option value="${esc(c)}"${i.cat===c?' selected':''}>${esc(c)}</option>`).join('')}</select>
+        <div class="mv"><button data-act="up" aria-label="เลื่อนขึ้น" ${idx===0?'disabled':''}>▲</button><button data-act="down" aria-label="เลื่อนลง" ${idx===rows.length-1?'disabled':''}>▼</button></div>
+      </div>
       <div class="acts"><button class="del" data-act="photo">${src?'เปลี่ยนรูป':'เพิ่มรูป'}</button><button class="del" data-act="del">ลบลิงก์นี้</button></div>
     </article>`;
   }).join('');
@@ -335,7 +404,7 @@ async function addItem(){
   let img='';
   const pf=$('fPhoto').files[0];
   if(pf){try{img=await resizeImage(pf);}catch(e){toast('อ่านรูปไม่ได้ เพิ่มลิงก์โดยไม่มีรูป');}}
-  const it={id:uid(),key,itemId:p.id||'',url:p.url,name:$('fName').value.trim(),img,imgUrl:'',
+  const it={id:uid(),key,itemId:p.id||'',url:p.url,name:$('fName').value.trim(),cat:$('fCat').value,img,imgUrl:'',
     jpy:num($('fJpy').value),seller:seller||'',status:'hot',added:Date.now()};
   S.items.unshift(it);
   ['fUrl','fName','fJpy','fSeller','fPhoto'].forEach(k=>$(k).value='');
@@ -353,7 +422,7 @@ function addFlag(){
   save(); render(); toast('บันทึกแล้ว');
 }
 function exportData(){
-  const txt=JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged});
+  const txt=JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged,cats:S.cats});
   $('backup').value=txt;
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(()=>toast('คัดลอกแล้ว'),()=>{$('backup').select();toast('กดคัดลอกจากช่องด้านบน');});
@@ -365,6 +434,8 @@ function importData(){
     if(+d.rate>0) S.rate=+d.rate;
     (d.items||[]).forEach(i=>{if(i&&i.key&&!S.items.some(x=>x.key===i.key)) S.items.push(i);});
     (d.flagged||[]).forEach(f=>{if(f&&f.sellerId&&!flaggedFor(f.sellerId)) S.flagged.push(f);});
+    (d.cats||[]).forEach(c=>{if(typeof c==='string'&&c&&!S.cats.includes(c)) S.cats.push(c);});
+    S.items.forEach(i=>{if(i.cat&&!S.cats.includes(i.cat)) S.cats.push(i.cat);});
     $('rate').value=S.rate; save(); render(); toast('นำเข้าแล้ว');
   }catch(e){toast('ข้อมูลสำรองไม่ถูกต้อง');}
 }
@@ -467,10 +538,25 @@ async function readPrice(file,onProgress){
 }
 let ocrPending=null;
 let pickFor=null;
+function moveItem(it,dir){
+  const rows=visibleRows(), nb=rows[rows.indexOf(it)+dir]; if(!nb) return;
+  const a=S.items.indexOf(it), b=S.items.indexOf(nb);
+  S.items[a]=nb; S.items[b]=it; save(); render();
+}
+function badCatName(n,except){
+  return n.toLowerCase()==='all'||n==='__none'||S.cats.some(c=>c!==except&&c.toLowerCase()===n.toLowerCase());
+}
+function addCat(){
+  const n=$('cName').value.trim().slice(0,30);
+  if(!n){toast('ใส่ชื่อหมวดก่อน');return;}
+  if(badCatName(n)){toast('ชื่อนี้ใช้ไม่ได้หรือมีอยู่แล้ว');return;}
+  S.cats.push(n); $('cName').value=''; save(); render(); toast('เพิ่มหมวดแล้ว');
+}
 function showTab(t){
-  const list=t==='list';
-  $('viewList').hidden=!list; $('viewFlag').hidden=list;
-  $('tabList').setAttribute('aria-selected',list); $('tabFlag').setAttribute('aria-selected',!list);
+  const map={list:['viewList','tabList'],cat:['viewCat','tabCat'],flag:['viewFlag','tabFlag']};
+  Object.keys(map).forEach(k=>{
+    $(map[k][0]).hidden=k!==t; $(map[k][1]).setAttribute('aria-selected',k===t);
+  });
 }
 
 /* ---------- events ---------- */
@@ -516,6 +602,35 @@ $('btnImport').onclick=importData;
 $('fSeller').addEventListener('input',checkHint);
 $('tabList').onclick=()=>showTab('list');
 $('tabFlag').onclick=()=>showTab('flag');
+$('tabCat').onclick=()=>showTab('cat');
+$('btnCat').onclick=addCat;
+$('catChips').addEventListener('click',e=>{
+  const b=e.target.closest('[data-cat]'); if(!b) return;
+  S.cat=b.dataset.cat; renderChips(); renderList();
+  if(S.cats.includes(S.cat)) $('fCat').value=S.cat;
+});
+$('catList').addEventListener('click',e=>{
+  const r=e.target.closest('[data-crename]'), d=e.target.closest('[data-crdel]'), m=e.target.closest('[data-cmove]');
+  if(r){
+    const old=r.dataset.crename, n=(prompt('ชื่อหมวดใหม่',old)||'').trim().slice(0,30);
+    if(!n||n===old) return;
+    if(badCatName(n,old)){toast('ชื่อนี้ใช้ไม่ได้หรือมีอยู่แล้ว');return;}
+    S.cats=S.cats.map(c=>c===old?n:c); S.items.forEach(i=>{if(i.cat===old) i.cat=n;});
+    if(S.cat===old) S.cat=n; save(); render();
+  }
+  if(d){
+    const n=d.dataset.crdel;
+    if(confirm('ลบหมวด "'+n+'"? ลิงก์ในหมวดนี้จะไม่ถูกลบ แต่จะกลายเป็นไม่ระบุหมวด')){
+      S.cats=S.cats.filter(c=>c!==n); S.items.forEach(i=>{if(i.cat===n) i.cat='';});
+      if(S.cat===n) S.cat='all'; save(); render();
+    }
+  }
+  if(m){
+    const k=S.cats.indexOf(m.dataset.cmove), j=k+(+m.dataset.dir);
+    if(k<0||j<0||j>=S.cats.length) return;
+    const t=S.cats[k]; S.cats[k]=S.cats[j]; S.cats[j]=t; save(); render();
+  }
+});
 $('chips').addEventListener('click',e=>{
   const b=e.target.closest('[data-filter]'); if(!b) return;
   S.filter=b.dataset.filter; renderChips(); renderList();
@@ -525,14 +640,17 @@ $('list').addEventListener('click',e=>{
   if(!card||!b) return;
   const it=S.items.find(i=>i.id===card.dataset.id); if(!it) return;
   if(b.dataset.act==='status'){it.status=b.dataset.v;save();render();}
+  if(b.dataset.act==='up') moveItem(it,-1);
+  if(b.dataset.act==='down') moveItem(it,1);
   if(b.dataset.act==='zoom'){$('lightbox').querySelector('img').src=it.img||it.imgUrl;$('lightbox').hidden=false;}
   if(b.dataset.act==='photo'){pickFor=it.id;$('photoPick').click();}
   if(b.dataset.act==='del'&&confirm('ลบลิงก์นี้ออกจากรายการ?')){S.items=S.items.filter(i=>i!==it);save();render();}
 });
 $('list').addEventListener('change',e=>{
-  if(!e.target.classList.contains('price')||e.target.tagName!=='INPUT') return;
-  const card=e.target.closest('.item');
+  const card=e.target.closest('.item'); if(!card) return;
   const it=S.items.find(i=>i.id===card.dataset.id); if(!it) return;
+  if(e.target.classList.contains('catsel')){it.cat=e.target.value;save();render();return;}
+  if(!e.target.classList.contains('price')||e.target.tagName!=='INPUT') return;
   it.jpy=num(e.target.value); save(); render();
 });
 $('flagList').addEventListener('click',e=>{
