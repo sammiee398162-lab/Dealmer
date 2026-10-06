@@ -47,7 +47,7 @@ input,textarea{font-size:16px}
 .split div{background:rgba(255,255,255,.09);border-radius:14px;padding:10px 12px;font-size:14px}
 .split b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
 .rate{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:15px}
-.rate input{width:110px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:12px;
+.summary .rate input[type=number]{width:110px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);border-radius:12px;
   padding:8px 10px;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
 
 /* tabs */
@@ -406,7 +406,8 @@ function pickPrice(words){
     for(let j=i;j<Math.min(words.length,i+3);j++){
       if(j>i&&words[i].bbox&&words[j].bbox&&Math.abs(words[j].bbox.y0-words[i].bbox.y0)>Math.max(H(words[i]),H(words[j]))) break;
       s+=clean(words[j]); h=Math.max(h,H(words[j]));
-      const t=s.replace(/円$/,'').replace(/[^\d,]+$/,'');
+      let t=s.replace(/^[^\d¥￥YV\\$S]+/,'').replace(/円.*$/,'').replace(/[^\d,.]+$/,'');
+      t=t.replace(/(\d)\.(\d{3})(?!\d)/g,'$1,$2');
       const m=t.match(reNum); if(!m) continue;
       const hasSym=!!m[1], rest=m[2];
       if(!hasSym&&rest.indexOf(',')<0) continue;
@@ -447,14 +448,21 @@ function fileToCanvas(file,max){
 }
 async function readPrice(file,onProgress){
   await loadTess();
-  const cv=await fileToCanvas(file,1800);
+  const cv=await fileToCanvas(file,2400);
   const worker=await Tesseract.createWorker('eng',1,{logger:m=>{
     if(onProgress&&m.status==='recognizing text') onProgress(Math.round(m.progress*100));
   }});
   try{
-    await worker.setParameters({tessedit_pageseg_mode:'11'});
-    const {data}=await worker.recognize(cv);
-    return pickPrice((data.words||[]).map(w=>({text:w.text,bbox:w.bbox})));
+    let seen=[];
+    for(const psm of ['11','3']){
+      await worker.setParameters({tessedit_pageseg_mode:psm});
+      const {data}=await worker.recognize(cv);
+      const words=(data.words||[]).map(w=>({text:w.text,bbox:w.bbox}));
+      const v=pickPrice(words);
+      if(v) return {value:v,seen:[]};
+      seen=words.map(w=>String(w.text).trim()).filter(t=>/\d/.test(t)&&t.length>=3);
+    }
+    return {value:null,seen:seen.slice(0,8)};
   }finally{ await worker.terminate(); }
 }
 let ocrPending=null;
@@ -476,11 +484,12 @@ $('fPhoto').addEventListener('change',()=>{
   const f=$('fPhoto').files[0], h=$('ocrHint');
   if(!f){ocrPending=null;h.textContent='';return;}
   h.textContent='กำลังอ่านราคาจากรูป...';
-  ocrPending=readPrice(f,p=>{h.textContent='กำลังอ่านราคาจากรูป '+p+'%';}).then(v=>{
+  ocrPending=readPrice(f,p=>{h.textContent='กำลังอ่านราคาจากรูป '+p+'%';}).then(r=>{
+    const v=r.value;
     if(v){
       if(!$('fJpy').value.trim()) $('fJpy').value=String(v);
       h.textContent='อ่านได้ ¥'+fmt(v)+' ตรวจให้ตรงกับรูปก่อนกดเพิ่ม';
-    }else h.textContent='อ่านราคาจากรูปไม่ได้ กรอกราคาเอง';
+    }else h.textContent='อ่านราคาจากรูปไม่ได้ กรอกราคาเอง'+(r.seen.length?' (ตัวเลขที่อ่านเจอ: '+r.seen.join(', ')+')':'');
   }).catch(()=>{h.textContent='อ่านราคาจากรูปไม่ได้ (ต้องต่ออินเทอร์เน็ต) กรอกราคาเอง';});
 });
 $('photoPick').addEventListener('change',async e=>{
@@ -490,7 +499,7 @@ $('photoPick').addEventListener('change',async e=>{
   if(!it.jpy){
     toast('กำลังอ่านราคาจากรูป...');
     try{
-      const v=await readPrice(f);
+      const v=(await readPrice(f)).value;
       if(v&&!it.jpy){it.jpy=v;save();render();toast('อ่านได้ ¥'+fmt(v)+' ตรวจให้ตรงกับรูป');}
       else if(!v) toast('อ่านราคาจากรูปไม่ได้ กรอกราคาเอง');
     }catch(err){toast('อ่านราคาจากรูปไม่ได้ (ต้องต่ออินเทอร์เน็ต)');}
