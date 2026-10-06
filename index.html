@@ -154,9 +154,9 @@ input[type=file]{width:100%;padding:9px;border:1px dashed var(--line);border-rad
         <input id="fSeller" type="text" inputmode="url" autocomplete="off" autocapitalize="off"></div>
     </div>
     <div class="hint" id="sellerHint"></div>
-    <label for="fPhoto">รูปการ์ด (เลือกจากรูปในเครื่อง ไม่ใส่ก็ได้)</label>
+    <label for="fPhoto">ภาพแคปหน้าสินค้า (แอปจะอ่านราคาจากรูปให้)</label>
     <input id="fPhoto" type="file" accept="image/*">
-    <div class="hint">ถ้าไม่เลือกรูป แอปจะลองดึงรูปจากลิงก์ให้เอง (อาจไม่สำเร็จทุกครั้ง)</div>
+    <div class="hint" id="ocrHint">เลือกรูปที่เห็นราคาชัดๆ ถ้าไม่เลือกรูป แอปจะลองดึงรูปจากลิงก์ให้เอง (อาจไม่สำเร็จทุกครั้ง)</div>
     <button class="btn" id="btnAdd">เพิ่มลงรายการ</button>
   </div>
 
@@ -331,6 +331,7 @@ async function addItem(){
   const sv=$('fSeller').value.trim();
   const seller=sellerFrom(sv);
   if(sv&&seller===null){toast('รหัสผู้ขายไม่ถูกต้อง');return;}
+  if(ocrPending){await ocrPending;}
   let img='';
   const pf=$('fPhoto').files[0];
   if(pf){try{img=await resizeImage(pf);}catch(e){toast('อ่านรูปไม่ได้ เพิ่มลิงก์โดยไม่มีรูป');}}
@@ -338,6 +339,7 @@ async function addItem(){
     jpy:num($('fJpy').value),seller:seller||'',status:'hot',added:Date.now()};
   S.items.unshift(it);
   ['fUrl','fName','fJpy','fSeller','fPhoto'].forEach(k=>$(k).value='');
+  ocrPending=null; $('ocrHint').textContent='';
   checkHint(); save(); render();
   toast(flaggedFor(seller)?'เพิ่มแล้ว แต่ผู้ขายนี้เคยถูกรายงาน':'เพิ่มลงรายการแล้ว');
   if(!img) fetchPreview(it);
@@ -393,6 +395,69 @@ async function fetchPreview(it){
     save(); render();
   }catch(e){}
 }
+function pickPrice(words){
+  const SYM='[¥￥YV\\\\$S]';
+  const reNum=new RegExp('^('+SYM+')?(\\d{1,3}(?:,\\d{3,4})+|\\d{3,7})$');
+  const clean=w=>String(w.text||'').replace(/\s/g,'');
+  const H=w=>(w.bbox?w.bbox.y1-w.bbox.y0:0);
+  const cands=[];
+  for(let i=0;i<words.length;i++){
+    let s='',h=0;
+    for(let j=i;j<Math.min(words.length,i+3);j++){
+      if(j>i&&words[i].bbox&&words[j].bbox&&Math.abs(words[j].bbox.y0-words[i].bbox.y0)>Math.max(H(words[i]),H(words[j]))) break;
+      s+=clean(words[j]); h=Math.max(h,H(words[j]));
+      const t=s.replace(/円$/,'').replace(/[^\d,]+$/,'');
+      const m=t.match(reNum); if(!m) continue;
+      const hasSym=!!m[1], rest=m[2];
+      if(!hasSym&&rest.indexOf(',')<0) continue;
+      const parts=rest.split(',').map((p,k)=>k?p.slice(0,3):p);
+      const value=parseInt(parts.join(''),10);
+      if(value<100||value>9999999) continue;
+      cands.push({value,sym:hasSym,h,y:words[i].bbox?words[i].bbox.y0:0});
+    }
+  }
+  const pool=cands.some(c=>c.sym)?cands.filter(c=>c.sym):cands;
+  pool.sort((a,b)=>b.h-a.h||a.y-b.y);
+  return pool.length?pool[0].value:null;
+}
+
+let tessP=null;
+function loadTess(){
+  if(window.Tesseract) return Promise.resolve();
+  return tessP||(tessP=new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    sc.onload=res; sc.onerror=()=>{tessP=null;rej(new Error('load'));};
+    document.head.appendChild(sc);
+  }));
+}
+function fileToCanvas(file,max){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), im=new Image();
+    im.onload=()=>{
+      const k=Math.min(1,max/Math.max(im.width,im.height));
+      const c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(im.width*k)); c.height=Math.max(1,Math.round(im.height*k));
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(url); res(c);
+    };
+    im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'));};
+    im.src=url;
+  });
+}
+async function readPrice(file,onProgress){
+  await loadTess();
+  const cv=await fileToCanvas(file,1800);
+  const worker=await Tesseract.createWorker('eng',1,{logger:m=>{
+    if(onProgress&&m.status==='recognizing text') onProgress(Math.round(m.progress*100));
+  }});
+  try{
+    await worker.setParameters({tessedit_pageseg_mode:'11'});
+    const {data}=await worker.recognize(cv);
+    return pickPrice((data.words||[]).map(w=>({text:w.text,bbox:w.bbox})));
+  }finally{ await worker.terminate(); }
+}
+let ocrPending=null;
 let pickFor=null;
 function showTab(t){
   const list=t==='list';
@@ -407,10 +472,29 @@ $('rate').addEventListener('change',e=>{
 });
 $('btnAdd').onclick=addItem;
 $('lightbox').onclick=()=>{$('lightbox').hidden=true;};
+$('fPhoto').addEventListener('change',()=>{
+  const f=$('fPhoto').files[0], h=$('ocrHint');
+  if(!f){ocrPending=null;h.textContent='';return;}
+  h.textContent='กำลังอ่านราคาจากรูป...';
+  ocrPending=readPrice(f,p=>{h.textContent='กำลังอ่านราคาจากรูป '+p+'%';}).then(v=>{
+    if(v){
+      if(!$('fJpy').value.trim()) $('fJpy').value=String(v);
+      h.textContent='อ่านได้ ¥'+fmt(v)+' ตรวจให้ตรงกับรูปก่อนกดเพิ่ม';
+    }else h.textContent='อ่านราคาจากรูปไม่ได้ กรอกราคาเอง';
+  }).catch(()=>{h.textContent='อ่านราคาจากรูปไม่ได้ (ต้องต่ออินเทอร์เน็ต) กรอกราคาเอง';});
+});
 $('photoPick').addEventListener('change',async e=>{
   const f=e.target.files[0]; e.target.value='';
   const it=S.items.find(i=>i.id===pickFor); if(!f||!it) return;
-  try{it.img=await resizeImage(f); save(); render();}catch(err){toast('อ่านรูปไม่ได้');}
+  try{it.img=await resizeImage(f); save(); render();}catch(err){toast('อ่านรูปไม่ได้');return;}
+  if(!it.jpy){
+    toast('กำลังอ่านราคาจากรูป...');
+    try{
+      const v=await readPrice(f);
+      if(v&&!it.jpy){it.jpy=v;save();render();toast('อ่านได้ ¥'+fmt(v)+' ตรวจให้ตรงกับรูป');}
+      else if(!v) toast('อ่านราคาจากรูปไม่ได้ กรอกราคาเอง');
+    }catch(err){toast('อ่านราคาจากรูปไม่ได้ (ต้องต่ออินเทอร์เน็ต)');}
+  }
 });
 $('list').addEventListener('error',e=>{
   if(!e.target.classList||!e.target.classList.contains('thumb')) return;
