@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ตลาดเมอ">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12353A">
+<title>ตลาดเมอ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" id="touchIcon">
+<link rel="icon" id="favIcon">
+<style>
+:root{
+  --bg:#EEF1EE; --card:#FFFFFF; --ink:#16212B; --muted:#5E6B75; --line:#D9DFDB;
+  --teal:#12353A; --teal-2:#1D5A5F; --mint:#BFE3D4; --amber:#B45309; --amber-bg:#FDEBC8;
+  --red:#B42318; --red-bg:#FDE1DE; --hot-bg:#D5EEE2; --hot-ink:#0E4B3A; --drop-bg:#E4E7E5;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+  --font:"IBM Plex Sans Thai",-apple-system,"Sukhumvit Set","Thonburi",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0F1618; --card:#18222A; --ink:#E7EEEA; --muted:#98A6A2; --line:#2A3841;
+    --amber:#F4B860; --amber-bg:#3A2D14; --red:#FF9B91; --red-bg:#40201D;
+    --hot-bg:#16453A; --hot-ink:#BFE9D6; --drop-bg:#222C31;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;
+  padding-bottom:calc(32px + var(--safe-bottom))}
+button,input,textarea{font:inherit;color:inherit}
+input,textarea{font-size:16px}
+:focus-visible{outline:3px solid var(--teal-2);outline-offset:2px}
+
+/* summary */
+.summary{background:var(--teal);color:#EAF4EF;padding:calc(18px + var(--safe-top)) 20px 20px;border-radius:0 0 28px 28px}
+.summary .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.summary h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.2px}
+.summary .count{font-size:14px;color:var(--mint)}
+.total{margin:10px 0 2px;font-size:46px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums}
+.total small{font-size:26px;font-weight:500;margin-right:4px;color:var(--mint)}
+.sub{color:var(--mint);font-size:15px;font-variant-numeric:tabular-nums}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.split div{background:rgba(255,255,255,.09);border-radius:14px;padding:10px 12px;font-size:14px}
+.split b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.rate{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:15px}
+.rate input{width:110px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:12px;
+  padding:8px 10px;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin:16px 16px 0;background:var(--line);border-radius:14px;padding:4px}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:11px;font-weight:600;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.badge-n{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:10px;background:var(--red-bg);color:var(--red);font-size:13px}
+
+main{padding:0 16px}
+section[hidden]{display:none}
+.panel{background:var(--card);border-radius:18px;padding:16px;margin-top:14px;border:1px solid var(--line)}
+.panel h2{margin:0 0 10px;font-size:16px;font-weight:600}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=url],input[type=number],textarea{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
+textarea{min-height:90px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:block;width:100%;margin-top:14px;padding:13px;border:0;border-radius:14px;background:var(--teal-2);color:#fff;font-weight:600;cursor:pointer}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{display:inline-block;width:auto;margin:0;padding:8px 14px;font-size:14px}
+.hint{margin-top:8px;font-size:14px;color:var(--muted)}
+.hint.bad{color:var(--red);font-weight:600}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;margin:16px -16px 0;padding:0 16px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:6px 14px;font-size:14px;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* item card */
+.item{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:12px}
+.item.drop{background:var(--drop-bg)}
+.item.drop .price{text-decoration:line-through;opacity:.6}
+.item.flag{border-color:var(--red);border-width:2px}
+.item .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.item .name{font-weight:600;word-break:break-word}
+.item .meta{font-size:13px;color:var(--muted);margin-top:2px;word-break:break-all}
+.item .meta a{color:var(--teal-2);font-weight:600}
+@media (prefers-color-scheme:dark){.item .meta a{color:var(--mint)}}
+.warn{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:10px;background:var(--red-bg);color:var(--red);font-size:14px;font-weight:600}
+.pricebox{display:flex;align-items:center;gap:10px;margin-top:12px}
+.pricebox .yen{position:relative;flex:0 0 140px}
+.pricebox .yen span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.pricebox .yen input{padding-left:28px;text-align:right;font-variant-numeric:tabular-nums}
+.thb{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+.seg button{border:1px solid var(--line);background:transparent;border-radius:11px;padding:8px 4px;font-size:14px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true].hot{background:var(--hot-bg);color:var(--hot-ink);border-color:transparent;font-weight:600}
+.seg button[aria-pressed=true].wait{background:var(--amber-bg);color:var(--amber);border-color:transparent;font-weight:600}
+.seg button[aria-pressed=true].drop{background:var(--drop-bg);color:var(--ink);border-color:var(--muted);font-weight:600}
+.del{background:none;border:0;color:var(--muted);font-size:14px;padding:4px 0;margin-top:10px;cursor:pointer;text-decoration:underline}
+.empty{text-align:center;color:var(--muted);padding:34px 10px}
+
+.flagrow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.flagrow:first-of-type{border-top:0}
+.flagrow b{font-variant-numeric:tabular-nums}
+.flagrow .note{font-size:14px;color:var(--muted)}
+.disclaimer{font-size:13px;color:var(--muted);margin-top:10px}
+.toast{position:fixed;left:50%;bottom:calc(24px + var(--safe-bottom));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:14px;font-size:15px;opacity:0;pointer-events:none;transition:.2s;max-width:90vw;text-align:center;z-index:9}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="summary">
+  <div class="top"><h1>ตลาดเมอ</h1><span class="count" id="sumCount"></span></div>
+  <div class="total" id="sumThb"><small>฿</small>0</div>
+  <div class="sub" id="sumJpy">¥0 (ไม่รวมที่ตัดทิ้ง)</div>
+  <div class="split">
+    <div>สนใจมาก<b id="sumHot">฿0</b></div>
+    <div>รอดูก่อน<b id="sumWait">฿0</b></div>
+  </div>
+  <label class="rate" for="rate">1 เยน =
+    <input id="rate" type="number" inputmode="decimal" step="0.0001" min="0"> บาท
+  </label>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" id="tabList" aria-selected="true">รายการ</button>
+  <button role="tab" id="tabFlag" aria-selected="false">เตือนภัยผู้ขาย<span class="badge-n" id="flagN" hidden></span></button>
+</nav>
+
+<main>
+<section id="viewList">
+  <div class="panel">
+    <h2>เพิ่มลิงก์</h2>
+    <label for="fUrl">ลิงก์ Mercari</label>
+    <input id="fUrl" type="url" inputmode="url" placeholder="วางลิงก์ที่นี่" autocomplete="off" autocapitalize="off">
+    <label for="fName">ชื่อสินค้า (ไม่ใส่ก็ได้)</label>
+    <input id="fName" type="text" autocomplete="off">
+    <div class="row2">
+      <div><label for="fJpy">ราคา (เยน)</label>
+        <input id="fJpy" type="text" inputmode="numeric" placeholder="เช่น 3500" autocomplete="off"></div>
+      <div><label for="fSeller">รหัสผู้ขาย / ลิงก์โปรไฟล์</label>
+        <input id="fSeller" type="text" inputmode="url" autocomplete="off" autocapitalize="off"></div>
+    </div>
+    <div class="hint" id="sellerHint"></div>
+    <button class="btn" id="btnAdd">เพิ่มลงรายการ</button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div id="list"></div>
+</section>
+
+<section id="viewFlag" hidden>
+  <div class="panel">
+    <h2>บันทึกผู้ขายที่เคยถูกรายงาน</h2>
+    <label for="gSeller">รหัสผู้ขาย หรือลิงก์โปรไฟล์ผู้ขาย</label>
+    <input id="gSeller" type="text" inputmode="url" autocomplete="off" autocapitalize="off">
+    <label for="gNote">เหตุผล (เช่น ไม่ส่งของ, รูปไม่ตรงปก)</label>
+    <input id="gNote" type="text" autocomplete="off">
+    <button class="btn" id="btnFlag">บันทึกเข้ารายการเตือนภัย</button>
+    <p class="disclaimer">รายการนี้เป็นข้อมูลที่ผู้ใช้บันทึกเอง ใช้เป็นข้อมูลประกอบการตัดสินใจเท่านั้น ไม่ได้ยืนยันว่าผู้ขายโกงจริง</p>
+  </div>
+
+  <div class="panel" id="flagListBox">
+    <h2>รายการเตือนภัย</h2>
+    <div id="flagList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>สำรองและย้ายข้อมูล</h2>
+    <p class="hint" style="margin-top:0">ข้อมูลเก็บอยู่ในเครื่องนี้เท่านั้น ถ้าล้างข้อมูล Safari ข้อมูลจะหาย คัดลอกเก็บไว้เป็นระยะ หรือใช้ย้ายไปเครื่องอื่น</p>
+    <textarea id="backup" placeholder="วางข้อมูลสำรองที่นี่เพื่อนำเข้า"></textarea>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn small" id="btnExport">คัดลอกข้อมูลสำรอง</button>
+      <button class="btn small alt" id="btnImport">นำเข้า</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+const KEY='talad-mer-v1';
+const S={rate:0.23,items:[],flagged:[],filter:'all'};
+const $=id=>document.getElementById(id);
+const STATUS={hot:'สนใจมาก',wait:'รอดูก่อน',drop:'ตัดทิ้ง'};
+
+/* ---------- storage ---------- */
+function load(){
+  try{
+    const r=localStorage.getItem(KEY); if(!r) return;
+    const d=JSON.parse(r);
+    if(+d.rate>0) S.rate=+d.rate;
+    if(Array.isArray(d.items)) S.items=d.items;
+    if(Array.isArray(d.flagged)) S.flagged=d.flagged;
+  }catch(e){}
+}
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged}));}catch(e){}
+}
+
+/* ---------- helpers ---------- */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let toastT;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function parseLink(raw){
+  const t=(raw||'').trim(); if(!t) return null;
+  let u;
+  try{u=new URL(/^https?:\/\//i.test(t)?t:'https://'+t);}catch(e){return {type:'bad'};}
+  if(!/mercari/i.test(u.hostname)) return {type:'other',url:u.origin+u.pathname};
+  let m;
+  if((m=u.pathname.match(/\/item\/(m\d+)/i))) return {type:'item',id:m[1],url:u.origin+u.pathname};
+  if((m=u.pathname.match(/\/user\/profile\/(\d+)/i))) return {type:'profile',id:m[1]};
+  if((m=u.pathname.match(/\/(?:shops\/product|products)\/([A-Za-z0-9]+)/i))) return {type:'shop',id:m[1],url:u.origin+u.pathname};
+  return {type:'other',url:u.origin+u.pathname};
+}
+function sellerFrom(str){
+  const t=(str||'').trim(); if(!t) return '';
+  if(/^\d+$/.test(t)) return t;
+  const p=parseLink(t);
+  return p&&p.type==='profile'?p.id:null;
+}
+const flaggedFor=id=>id?S.flagged.find(f=>f.sellerId===id):null;
+const num=v=>parseInt(String(v).replace(/[^\d]/g,''),10)||0;
+
+/* ---------- render ---------- */
+function render(){
+  renderSummary(); renderChips(); renderList(); renderFlags();
+}
+function renderSummary(){
+  const active=S.items.filter(i=>i.status!=='drop');
+  const sum=a=>a.reduce((s,i)=>s+i.jpy,0);
+  const jpy=sum(active), r=S.rate;
+  $('sumThb').innerHTML='<small>฿</small>'+fmt(jpy*r);
+  $('sumJpy').textContent='¥'+fmt(jpy)+' (ไม่รวมที่ตัดทิ้ง)';
+  $('sumHot').textContent='฿'+fmt(sum(S.items.filter(i=>i.status==='hot'))*r);
+  $('sumWait').textContent='฿'+fmt(sum(S.items.filter(i=>i.status==='wait'))*r);
+  $('sumCount').textContent=active.length+' ลิงก์ที่ยังสนใจ';
+  const n=S.items.filter(i=>flaggedFor(i.seller)&&i.status!=='drop').length;
+  $('flagN').hidden=!n; $('flagN').textContent=n;
+}
+function renderChips(){
+  const c={all:S.items.length,hot:0,wait:0,drop:0};
+  S.items.forEach(i=>c[i.status]++);
+  const defs=[['all','ทั้งหมด'],['hot','สนใจมาก'],['wait','รอดูก่อน'],['drop','ตัดทิ้ง']];
+  $('chips').innerHTML=defs.map(([k,l])=>
+    `<button class="chip" data-filter="${k}" aria-pressed="${S.filter===k}">${l} ${c[k]}</button>`).join('');
+}
+function renderList(){
+  const rows=S.items.filter(i=>S.filter==='all'||i.status===S.filter);
+  if(!rows.length){
+    $('list').innerHTML=`<div class="empty">${S.items.length?'ไม่มีลิงก์ในหมวดนี้':'ยังไม่มีลิงก์ วางลิงก์ Mercari ด้านบนเพื่อเริ่มต้น'}</div>`;
+    return;
+  }
+  $('list').innerHTML=rows.map(i=>{
+    const fl=flaggedFor(i.seller);
+    const title=i.name||('สินค้า '+(i.itemId||''));
+    const seg=Object.keys(STATUS).map(k=>
+      `<button class="${k}" data-act="status" data-v="${k}" aria-pressed="${i.status===k}">${STATUS[k]}</button>`).join('');
+    return `<article class="item ${i.status==='drop'?'drop':''} ${fl?'flag':''}" data-id="${esc(i.id)}">
+      <div class="head"><div>
+        <div class="name">${esc(title)}</div>
+        <div class="meta">${esc(i.itemId||'')}${i.seller?' · ผู้ขาย '+esc(i.seller):''} · <a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer">เปิดใน Mercari</a></div>
+      </div></div>
+      ${fl?`<div class="warn">ผู้ขายนี้เคยถูกรายงาน${fl.note?': '+esc(fl.note):''}</div>`:''}
+      <div class="pricebox">
+        <div class="yen"><span>¥</span><input class="price" type="text" inputmode="numeric" value="${i.jpy||''}" placeholder="ราคา" aria-label="ราคาเยน"></div>
+        <div class="thb price">≈ ฿${fmt(i.jpy*S.rate)}</div>
+      </div>
+      <div class="seg">${seg}</div>
+      <button class="del" data-act="del">ลบลิงก์นี้</button>
+    </article>`;
+  }).join('');
+}
+function renderFlags(){
+  $('flagList').innerHTML=S.flagged.length?S.flagged.map(f=>{
+    const used=S.items.filter(i=>i.seller===f.sellerId).length;
+    return `<div class="flagrow"><div><b>${esc(f.sellerId)}</b>
+      <div class="note">${esc(f.note||'ไม่ได้ระบุเหตุผล')}${used?' · ตรงกับ '+used+' ลิงก์ในรายการ':''}</div></div>
+      <button class="del" data-fdel="${esc(f.sellerId)}" style="margin:0">ลบ</button></div>`;
+  }).join(''):'<div class="empty" style="padding:14px 0">ยังไม่มีรายการ</div>';
+}
+
+/* ---------- actions ---------- */
+function checkHint(){
+  const h=$('sellerHint'); const v=$('fSeller').value.trim();
+  if(!v){h.textContent='';h.className='hint';return;}
+  const id=sellerFrom(v);
+  if(id===null){h.textContent='ใส่เป็นตัวเลขรหัสผู้ขาย หรือวางลิงก์โปรไฟล์ผู้ขาย';h.className='hint';return;}
+  const f=flaggedFor(id);
+  if(f){h.textContent='ผู้ขายนี้เคยถูกรายงาน'+(f.note?': '+f.note:'');h.className='hint bad';}
+  else{h.textContent='ไม่พบในรายการเตือนภัยของคุณ (ไม่ได้แปลว่าปลอดภัย)';h.className='hint';}
+}
+function addItem(){
+  const p=parseLink($('fUrl').value);
+  if(!p){toast('วางลิงก์ก่อน');return;}
+  if(p.type==='bad'){toast('ลิงก์ไม่ถูกต้อง');return;}
+  if(p.type==='profile'){
+    $('fSeller').value=p.id; $('fUrl').value=''; checkHint();
+    toast('เป็นลิงก์โปรไฟล์ ใส่เป็นรหัสผู้ขายให้แล้ว'); return;
+  }
+  if(p.type==='other'){toast('ไม่ใช่ลิงก์ Mercari');return;}
+  const key=p.id||p.url;
+  if(S.items.some(i=>i.key===key)){toast('มีลิงก์นี้อยู่แล้ว');return;}
+  const sv=$('fSeller').value.trim();
+  const seller=sellerFrom(sv);
+  if(sv&&seller===null){toast('รหัสผู้ขายไม่ถูกต้อง');return;}
+  S.items.unshift({id:uid(),key,itemId:p.id||'',url:p.url,name:$('fName').value.trim(),
+    jpy:num($('fJpy').value),seller:seller||'',status:'hot',added:Date.now()});
+  ['fUrl','fName','fJpy','fSeller'].forEach(k=>$(k).value='');
+  checkHint(); save(); render();
+  toast(flaggedFor(seller)?'เพิ่มแล้ว แต่ผู้ขายนี้เคยถูกรายงาน':'เพิ่มลงรายการแล้ว');
+}
+function addFlag(){
+  const id=sellerFrom($('gSeller').value);
+  if(!id){toast('ใส่รหัสผู้ขายหรือลิงก์โปรไฟล์');return;}
+  if(flaggedFor(id)){toast('มีผู้ขายนี้อยู่แล้ว');return;}
+  S.flagged.unshift({sellerId:id,note:$('gNote').value.trim(),added:Date.now()});
+  $('gSeller').value='';$('gNote').value='';
+  save(); render(); toast('บันทึกแล้ว');
+}
+function exportData(){
+  const txt=JSON.stringify({rate:S.rate,items:S.items,flagged:S.flagged});
+  $('backup').value=txt;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast('คัดลอกแล้ว'),()=>{$('backup').select();toast('กดคัดลอกจากช่องด้านบน');});
+  }else{$('backup').select();toast('กดคัดลอกจากช่องด้านบน');}
+}
+function importData(){
+  try{
+    const d=JSON.parse($('backup').value);
+    if(+d.rate>0) S.rate=+d.rate;
+    (d.items||[]).forEach(i=>{if(i&&i.key&&!S.items.some(x=>x.key===i.key)) S.items.push(i);});
+    (d.flagged||[]).forEach(f=>{if(f&&f.sellerId&&!flaggedFor(f.sellerId)) S.flagged.push(f);});
+    $('rate').value=S.rate; save(); render(); toast('นำเข้าแล้ว');
+  }catch(e){toast('ข้อมูลสำรองไม่ถูกต้อง');}
+}
+function showTab(t){
+  const list=t==='list';
+  $('viewList').hidden=!list; $('viewFlag').hidden=list;
+  $('tabList').setAttribute('aria-selected',list); $('tabFlag').setAttribute('aria-selected',!list);
+}
+
+/* ---------- events ---------- */
+$('rate').addEventListener('change',e=>{
+  const v=parseFloat(e.target.value);
+  if(v>0){S.rate=v;save();render();}else{e.target.value=S.rate;toast('ใส่เรทเป็นตัวเลขมากกว่า 0');}
+});
+$('btnAdd').onclick=addItem;
+$('btnFlag').onclick=addFlag;
+$('btnExport').onclick=exportData;
+$('btnImport').onclick=importData;
+$('fSeller').addEventListener('input',checkHint);
+$('tabList').onclick=()=>showTab('list');
+$('tabFlag').onclick=()=>showTab('flag');
+$('chips').addEventListener('click',e=>{
+  const b=e.target.closest('[data-filter]'); if(!b) return;
+  S.filter=b.dataset.filter; renderChips(); renderList();
+});
+$('list').addEventListener('click',e=>{
+  const card=e.target.closest('.item'); const b=e.target.closest('[data-act]');
+  if(!card||!b) return;
+  const it=S.items.find(i=>i.id===card.dataset.id); if(!it) return;
+  if(b.dataset.act==='status'){it.status=b.dataset.v;save();render();}
+  if(b.dataset.act==='del'&&confirm('ลบลิงก์นี้ออกจากรายการ?')){S.items=S.items.filter(i=>i!==it);save();render();}
+});
+$('list').addEventListener('change',e=>{
+  if(!e.target.classList.contains('price')||e.target.tagName!=='INPUT') return;
+  const card=e.target.closest('.item');
+  const it=S.items.find(i=>i.id===card.dataset.id); if(!it) return;
+  it.jpy=num(e.target.value); save(); render();
+});
+$('flagList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-fdel]'); if(!b) return;
+  if(confirm('ลบผู้ขายนี้ออกจากรายการเตือนภัย?')){S.flagged=S.flagged.filter(f=>f.sellerId!==b.dataset.fdel);save();render();}
+});
+
+/* ---------- home-screen icon (generated, no image file needed) ---------- */
+function makeIcon(){
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=180;
+    const x=c.getContext('2d');
+    x.fillStyle='#12353A'; x.fillRect(0,0,180,180);
+    x.fillStyle='#BFE3D4'; x.font='700 108px -apple-system,Helvetica,Arial,sans-serif';
+    x.textAlign='center'; x.textBaseline='middle'; x.fillText('¥',90,98);
+    const url=c.toDataURL('image/png');
+    $('touchIcon').href=url; $('favIcon').href=url;
+  }catch(e){}
+}
+
+load(); $('rate').value=S.rate; makeIcon(); render();
+})();
+</script>
+</body>
+</html>
